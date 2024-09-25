@@ -4,48 +4,18 @@ import datetime as dt
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import socket
-import struct
 import numpy as np
-
-# Constants for the commands
-COMMAND_STOP = 0x0000
-COMMAND_START_REALTIME = 0x0002
-COMMAND_START_BUFFERED = 0x0003
-COMMAND_RESET_LATCH = 0x0041
-COMMAND_SET_BIAS = 0x0042
-
-# RDT command header
-COMMAND_HEADER = 0x1234
-
-# ATI NET-FT
-ATI_ADDRESS = ('192.168.1.1', 49152)
-
-# Create socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.connect(ATI_ADDRESS)
-print('Socket opened')
-
-sample_time_min = 15
-
-def send_rdt_command(command):
-    rdt_request = struct.pack('!HHI', COMMAND_HEADER, command, 2)  # Sample count set to 0
-    sock.send(rdt_request)
-    # print(f"Sent RDT command: {command:#04x}")
+import NetFT
 
 
 def update(frame):
-    send_rdt_command(2)
-    rawdata = sock.recv(1024)
-    data = struct.unpack('!IIIiiiiii', rawdata)[3:]
-    data = [data[i] - mean[i] for i in range(6)]
 
-    Fx = data[0] / 416666
-    Fy = data[1] / 416666
-    Fz = data[2] / 416666
-    Tx = data[3] / 416666
-    Ty = data[4] / 416666
-    Tz = data[5] / 416666
+    F = sensor.getForce()
+
+    Fx = F[0] / 416666
+    Fy = F[1] / 416666
+    Fz = F[2] / 416666
+
 
     elapsed_time = time.time() - timeOffset
     print(f"{Fx}, {Fy}, {Fz}")
@@ -73,26 +43,24 @@ def update(frame):
 
     ax.clear()
 
-    ax.plot(xs, ys, label='F_t')
-    ax.plot(xs, fx_values, label='F_x')
-    ax.plot(xs, fy_values, label='F_y')
-    ax.plot(xs, fz_values, label='F_z')
+    ax.plot(xs, ys, label=f'F_t: {Ft:.3f} N')
+    ax.plot(xs, fx_values, label=f'F_x: {Fx:.3f} N')
+    ax.plot(xs, fy_values, label=f'F_y: {Fy:.3f} N')
+    ax.plot(xs, fz_values, label=f'F_z: {Fz:.3f} N')
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=4)
+
 
     ax.set_title('Force Components over Time')
     ax.set_xlabel('Time [s]')
     ax.set_ylabel('Force [N]')
-    ax.legend()
 
-    # send_rdt_command(COMMAND_STOP)
     return ax,
 
 try:
     # Initialization
+    sensor = NetFT.Sensor('192.168.1.1')
     timeOffset = time.time()
-    mean = [0] * 6
-    # send_rdt_command(COMMAND_SET_BIAS)
-    # send_rdt_command(COMMAND_START_REALTIME)
-
+    sample_time_min = 15
     Path("output").mkdir(parents=True, exist_ok=True)
     timestamped = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     writer = Writer(f'output/recording-{timestamped}.csv')
@@ -107,12 +75,9 @@ try:
     F_N = [0.0]
 
     fig, ax = plt.subplots(figsize=(10, 8))
-
-    plt.title("Force Components over Time")
-
     animation = FuncAnimation(fig, update, interval=200, save_count=100)
+
     plt.show()
 
 except Exception as e:
     print(f"Error: {e}")
-    send_rdt_command(COMMAND_STOP)
