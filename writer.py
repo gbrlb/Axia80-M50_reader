@@ -3,7 +3,7 @@ from threading import Thread, Semaphore
 
 class Writer:
     def __init__(self, file_name, separator = ',') -> None:
-        self.sem = Semaphore()
+        self.semaphore = Semaphore()
         self.xs = list()
         self.ys = list()
         self.separator = separator
@@ -16,17 +16,18 @@ class Writer:
         # Add x and y to lists
         self.xs = xs
         self.ys = ys
-        self.sem.release()
+        self.semaphore.release()
 
     def run_thread(self) -> None:
         while True:
             try:
-                self.sem.acquire()
-                for (x,y) in zip(self.xs, self.ys):
-                    line = str(x) + self.separator + str(y) + '\n'
+                self.semaphore.acquire()
+                for x, ys in zip(self.xs, self.ys):
+                    line = str(x) + self.separator + self.separator.join(map(str, ys)) + '\n'
                     self.file.write(line)
                     self.file.flush()
             except KeyboardInterrupt as e:
+                print("Writer interrupted by user.")
                 self.file.close()
                 break
             except Exception as e:

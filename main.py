@@ -27,7 +27,7 @@ def update(frame):
     fy_values.append(Fy)
     fz_values.append(Fz)
     xs.append(elapsed_time)
-    ys.append(Ft)
+    ys.append([Ft, Fx, Fy, Fz])
 
     if record:
         writer.update(xs, ys)
